@@ -6,7 +6,6 @@ WriteMakefile(
     NAME              => 'SQL::InterpolationBinding',
     VERSION_FROM      => 'lib/SQL/InterpolationBinding.pm', # finds $VERSION
     PREREQ_PM         => {}, # e.g., Module::Name => 1.1
-    ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/SQL/InterpolationBinding.pm', # retrieve abstract from module
-       AUTHOR         => 'Luke Ross <luke@lukeross.name>') : ()),
+    ABSTRACT_FROM     => 'lib/SQL/InterpolationBinding.pm', # retrieve abstract from module
+    AUTHOR            => 'Luke Ross <luke@lukeross.name>'
 );
