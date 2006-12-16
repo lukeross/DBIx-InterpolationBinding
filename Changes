@@ -1,0 +1,6 @@
+Revision history for Perl extension SQL::InterpolationBinding.
+
+0.01  Sat Dec 16 08:47:52 2006
+	- original version; created by h2xs 1.23 with options
+		-b 5.0.0 -X -n SQL::InterpolationBinding
+
