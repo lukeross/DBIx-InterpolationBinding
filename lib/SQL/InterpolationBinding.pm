@@ -6,8 +6,9 @@ use 5.005;
 use strict;
 use vars qw($VERSION @ISA @EXPORT $DEBUG);
 
-use overload	'""'	=> \&_convert_object_to_string,
-		'.'	=> \&_append_item_to_object;
+use overload	'""'		=> \&_convert_object_to_string,
+		'.'		=> \&_append_item_to_object,
+		'fallback'	=> 1;
 
 require Exporter;
 @ISA = qw(Exporter);
@@ -22,20 +23,33 @@ sub import {
 	SQL::InterpolationBinding->export_to_level(1, @_);
 }
 
-sub dbi_exec {
-	my $dbi = shift;
-	my $sql = shift;
+sub unimport {
+	overload::remove_constant 'q';
+	SUPER->unimport(@_);
+}
 
-	if (ref $sql) {
-		# We have a fake string
-		unshift @_, @{ $sql->{bind_params} };
+sub dbi_exec {
+	my ($dbi, $sql, @params) = @_;
+
+	($sql, @params) = _create_sql_and_params($sql, @params);
+
+	print "DBI::prepare($sql)\nDBI::execute(", join(", ",
+		@params) , ")\n" if $DEBUG;
+	my $sth = $dbi->prepare($sql) or return;
+	$sth->execute($sql, @params) or return;
+	return $sth;
+}
+
+sub _create_sql_and_params {
+	my ($sql, @params) = @_;
+
+	if (ref $sql and $sql->isa(__PACKAGE__)) {
+		# We have a SQL::InterpolationBinding string
+		unshift @params, @{ $sql->{bind_params} };
 		$sql = $sql->{sql_string}
 	}
 
-	print "prepare($sql)\nexecute(@_)\n" if $DEBUG;
-	my $sth = $dbi->prepare($sql) or return;
-	$sth->execute($sql, @_) or return;
-	return $sth;
+	return ($sql, @params);
 }
 
 sub _prepare_object_from_string {
@@ -57,30 +71,38 @@ sub _convert_object_to_string {
 sub _append_item_to_object {
 	my ($self, $string, $flipped) = @_;
 
+	# $new_hash will become the object we return, so the old one
+	# isn't mashed.
 	my $new_hash = { %$self };
-	if (ref $string) {
-		# We're adding another constant
-		if ($flipped) {
-			$new_hash->{sql_string} = $string->{sql_string} . $new_hash->{sql_string};
-			$new_hash->{string} = $string->{string} . $new_hash->{string};
-			unshift @{ $new_hash->{bind_params} }, @{ $string->{bind_params} };
-		} else {
-			$new_hash->{sql_string} .= $string->{sql_string};
-			$new_hash->{string} .= $string->{string};
-			push @{ $new_hash->{bind_params} }, @{ $string->{bind_params} };
-		}
-	} else {
-		# We're interpolating
-		if ($flipped) {
-			$new_hash->{sql_string} = "?" . $new_hash->{sql_string};
-			$new_hash->{string} = $string . $new_hash->{string};
-			unshift @{ $new_hash->{bind_params} }, $string;
-		} else {
-			$new_hash->{sql_string} .= "?";
-			$new_hash->{string} .= $string;
-			push @{ $new_hash->{bind_params} }, $string;
-		}
+
+	# At this point, the thing that isn't $self is either an object of
+	# this class, or it's a boring string. Also, we either need to append
+	# the other thingy before this one, or after, depending on $flipped.
+	my $string_is_this_class = ref($string) && $string->isa(__PACKAGE__);
+
+	if ($string_is_this_class and not $flipped) {
+		$new_hash->{sql_string} .= $string->{sql_string};
+		$new_hash->{string} .= $string->{string};
+		push @{ $new_hash->{bind_params} }, @{ $string->{bind_params} };
 	}
+	if ($string_is_this_class and $flipped) {
+		$new_hash->{sql_string} = $string->{sql_string} .
+			$new_hash->{sql_string};
+		$new_hash->{string} = $string->{string} . $new_hash->{string};
+		unshift @{ $new_hash->{bind_params} }, @{ $string->{bind_params} };
+	}
+
+	if ($flipped and not $string_is_this_class) {
+		$new_hash->{sql_string} = "?" . $new_hash->{sql_string};
+		$new_hash->{string} = $string . $new_hash->{string};
+		unshift @{ $new_hash->{bind_params} }, $string;
+	}
+	if (not($flipped) and not $string_is_this_class) {
+		$new_hash->{sql_string} .= "?";
+		$new_hash->{string} .= $string;
+		push @{ $new_hash->{bind_params} }, $string;
+	}
+
 	return bless $new_hash, ref($self);
 }
 
@@ -89,41 +111,90 @@ __END__
 
 =head1 NAME
 
-SQL::InterpolationBinding - Perl extension for blah blah blah
+SQL::InterpolationBinding - Perl extension for turning perl double-quote
+string interpolation into DBI bind parameters.
 
 =head1 SYNOPSIS
 
-  use SQL::InterpolationBinding;
-  blah blah blah
+  my $dbh = DBI->connect(...);
+
+  {
+    use SQL::InterpolationBinding;
+    my $sth = dbi_exec($dbh, "SELECT * FROM table WHERE id=$id");
+  }
+
+  my $result = $sth->fetchrow_hashref();
 
 =head1 DESCRIPTION
 
-Stub documentation for SQL::InterpolationBinding, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
+SQL::InterpolationBinding uses the magic of Perl 5's constant overloading to
+cause interpolation into strings to be treated as though the values being
+interpolated were used as bind parameters.
 
-Blah blah blah.
+Because of some limitations of the way in which this module works, it is
+typically better to keep this module in force for the minimum amount of
+code, as in the above example. For an in-depth discussion of bugs, see
+the BUGS section below.
 
 =head2 EXPORT
 
-None by default.
+=head3 dbi_exec($dbh, $sql);
 
+Prepare and execute the SQL query $sql on the DBI connection $dbh. Returns a
+DBI statement handle, or undef on failure.
 
+=head3 $SQL::InterpolationBinding::DEBUG
+
+Set this to 1 (default 0) to see the statement being prepared and the bind
+parameters used in dbi_exec()
+
+=head2 BUGS
+
+Because of limitations in the way Perl 5's overloading works, the
+limitations below may apply. Some of these are fairly major, so you may wish
+to take care.
+
+=over
+
+=item You cannot build up SQL through interpolation
+
+The system doesn't know which bits are SQL and which are bind variables.
+The following doesn't work as expected:
+
+  dbi_exec($dbh, "SELECT * FROM table WHERE id=$id $where_clause");
+
+You need to build it outside the scope of SQL::InterpolationBinding in this
+case, using conventional bind params.
+
+=item String passed in from outside the lexical scope will not have been
+overloaded
+
+If the string passed in is to be interpolated or concatenated into a string
+in the lexical scope this is fine, but if the string from outside is a bit of
+SQL the effects may be curious.
+
+=item Trying to concat (. operator) an overloaded object with a string 
+created in scope may have unexpected effects.
+
+This is because the strings in scope are actually objects with an overloaded
+concat operator. The overloaded function you're expecting may not be the one
+you get!
+
+=back
 
 =head1 SEE ALSO
 
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
+SQL::Interpolate::Filter achieves the same thing using source filters. I
+wanted to write a solution which didn't use source filters because of the
+difficulty in writing filters which can correctly handle all Perl syntax
+without incorrectly modifying the code.
 
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
+The project page for SQL::InterpolationBinding is
+<http://lukeross.name/projects/sql-interpolationbinding>
 
 =head1 AUTHOR
 
-Luke Ross, E<lt>lukeross@localdomainE<gt>
+Luke Ross, E<lt>luke@lukeross.nameE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -132,6 +203,5 @@ Copyright (C) 2006 by Luke Ross
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.5 or,
 at your option, any later version of Perl 5 you may have available.
-
 
 =cut
