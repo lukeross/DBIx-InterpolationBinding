@@ -4,3 +4,4 @@ MANIFEST
 README
 t/SQL-InterpolationBinding.t
 lib/SQL/InterpolationBinding.pm
+META.yml                                 Module meta-data
