@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'SQL::InterpolationBinding',
     VERSION_FROM      => 'lib/SQL/InterpolationBinding.pm', # finds $VERSION
-    PREREQ_PM         => {}, # e.g., Module::Name => 1.1
+    PREREQ_PM         => { DBI => 0 },
     ABSTRACT_FROM     => 'lib/SQL/InterpolationBinding.pm', # retrieve abstract from module
     AUTHOR            => 'Luke Ross <luke@lukeross.name>'
 );

@@ -4,39 +4,42 @@ package SQL::InterpolationBinding;
 
 use 5.005;
 use strict;
-use vars qw($VERSION @ISA @EXPORT $DEBUG);
+use vars qw($VERSION $DEBUG);
 
-use overload	'""'		=> \&_convert_object_to_string,
-		'.'		=> \&_append_item_to_object,
-		'fallback'	=> 1;
+use overload '""'       => \&_convert_object_to_string,
+             '.'        => \&_append_item_to_object,
+             'fallback' => 1;
+require DBI;
 
-require Exporter;
-@ISA = qw(Exporter);
-@EXPORT = qw(dbi_exec);
-
-$VERSION = '0.01';
+$VERSION = '0.02';
 
 $DEBUG = 0;
 
 sub import {
 	overload::constant 'q' => \&_prepare_object_from_string;
-	SQL::InterpolationBinding->export_to_level(1, @_);
+
+	# Bind the execute method into the DBI namespace
+	# We do it twice to avoid a tedious warning
+	*DBI::db::execute = \&dbi_exec;
+	*DBI::db::execute = \&dbi_exec;
 }
 
 sub unimport {
 	overload::remove_constant 'q';
-	SUPER->unimport(@_);
 }
 
 sub dbi_exec {
-	my ($dbi, $sql, @params) = @_;
+	my ($dbi, $sql) = @_;
 
-	($sql, @params) = _create_sql_and_params($sql, @params);
+	return $dbi->set_err(1,
+		'\$dbh->execute can only be used with a magic string.')
+		unless (ref $sql and $sql->isa(__PACKAGE__));
+	($sql, my @params) = _create_sql_and_params($sql);
 
-	print "DBI::prepare($sql)\nDBI::execute(", join(", ",
+	print STDERR "DBI::prepare($sql)\nDBI::execute(", join(", ",
 		@params) , ")\n" if $DEBUG;
 	my $sth = $dbi->prepare($sql) or return;
-	$sth->execute($sql, @params) or return;
+	$sth->execute(@params) or return;
 	return $sth;
 }
 
@@ -54,17 +57,23 @@ sub _create_sql_and_params {
 
 sub _prepare_object_from_string {
 	my (undef, $string, $mode) = @_;
+
+	# We only want to affect double-quoted strings
 	return $string unless ($mode eq "qq");
+
+	# Make an object out of the string
 	my $self = {
 		string => $string,
 		sql_string => $string,
 		bind_params => [ ]
 	};
-	return bless $self, "SQL::InterpolationBinding";
+	return bless $self => __PACKAGE__;
 }
 
 sub _convert_object_to_string {
-	my $self = shift;
+	my ($self) = @_;
+
+	# We need a string for this (eg. to print or use outside DBI)
 	return $self->{string};
 }
 
@@ -103,7 +112,8 @@ sub _append_item_to_object {
 		push @{ $new_hash->{bind_params} }, $string;
 	}
 
-	return bless $new_hash, ref($self);
+	# Make the new thing an object
+	return bless $new_hash => ref($self);
 }
 
 1;
@@ -120,7 +130,7 @@ string interpolation into DBI bind parameters.
 
   {
     use SQL::InterpolationBinding;
-    my $sth = dbi_exec($dbh, "SELECT * FROM table WHERE id=$id");
+    my $sth = $dbh->execute("SELECT * FROM table WHERE id=$id");
   }
 
   my $result = $sth->fetchrow_hashref();
@@ -138,10 +148,17 @@ the BUGS section below.
 
 =head2 EXPORT
 
-=head3 dbi_exec($dbh, $sql);
+=head3 $dbh->execute($sql);
 
-Prepare and execute the SQL query $sql on the DBI connection $dbh. Returns a
-DBI statement handle, or undef on failure.
+Rather rudely, this module exports an execute method into class DBI::db,
+so you can call execute() on DBI database handles.
+
+This method only accepts overloaded strings (ie. those created when
+SQL::InterpolationBinding is in force) - this makes it harder to shoot
+yourself in the foot by using it with strings that have been
+interpolated in an unsafe way.
+
+Returns a DBI statement handle, or undef on failure.
 
 =head3 $SQL::InterpolationBinding::DEBUG
 
@@ -198,7 +215,7 @@ Luke Ross, E<lt>luke@lukeross.nameE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2006 by Luke Ross
+Copyright (C) 2006-2007 by Luke Ross
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself, either Perl version 5.8.5 or,
