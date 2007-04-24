@@ -5,4 +5,3 @@ README
 t/01-overloading.t
 t/02-dbi.t
 lib/SQL/InterpolationBinding.pm
-META.yml                                 Module meta-data
