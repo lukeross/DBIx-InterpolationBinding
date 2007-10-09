@@ -1,8 +1,8 @@
-SQL-InterpolationBinding version 0.02
-=====================================
+DBIx-InterpolationBinding version 0.03
+======================================
 
 This module is provides a method to prepare and execute SQL statements
-using DBI in a manner that means any interpolated variables are use
+using DBI in a manner that means any interpolated variables are used
 as DBI bind parameters rather than being interpolated directly into
 the SQL. This module is written in pure Perl and does not require a C
 compiler.

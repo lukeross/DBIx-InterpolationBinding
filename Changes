@@ -1,4 +1,7 @@
-Revision history for Perl extension SQL::InterpolationBinding.
+Revision history for Perl extension DBIx::InterpolationBinding.
+
+0.03  Tue Oct 09
+	- renamed to DBIx::InterpolationBinding
 
 0.02  Mon Apr 09 14:48:34 2007
 	- Moved dbi_exec to $dbh->execute
