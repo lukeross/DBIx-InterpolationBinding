@@ -19,6 +19,8 @@ unless($dbh) {
 
 $dbh->{RaiseError} = 1;
 # Set up environment
+$dbh->do("DROP TABLE IF EXISTS fruit (dKey INT, dVal VARCHAR(10))")
+	or die($dbh->errstr());
 $dbh->do("CREATE TABLE fruit (dKey INT, dVal VARCHAR(10))")
 	or die($dbh->errstr());
 
@@ -35,7 +37,7 @@ my $f = 'to delete';
 my $g = 'apples';
 
 {
-use SQL::InterpolationBinding;
+use DBIx::InterpolationBinding;
 
 # Try an insert
 ok($dbh->execute("INSERT INTO fruit VALUES ($a,$d)"));

@@ -5,7 +5,7 @@
 
 use Test;
 BEGIN { plan tests => 5 };
-use SQL::InterpolationBinding;
+use DBIx::InterpolationBinding;
 ok(1); # If we made it this far, we're ok.
 
 #########################
@@ -27,25 +27,25 @@ my $b = 'hello';
 
 ok(array_eq(
 	[ 'SELECT * FROM table WHERE a=? AND b=?', $a, $b ],
-	[ SQL::InterpolationBinding::_create_sql_and_params(
+	[ DBIx::InterpolationBinding::_create_sql_and_params(
 		"SELECT * FROM table WHERE a=$a AND b=$b"
 	) ]
 ), 1, "2: Sanity check");
 
 ok(array_eq(
 	[ 'SELECT * FROM table WHERE a=$a AND b=$b' ],
-	[ SQL::InterpolationBinding::_create_sql_and_params(
+	[ DBIx::InterpolationBinding::_create_sql_and_params(
 		'SELECT * FROM table WHERE a=$a AND b=$b'
 	) ]
 ), 1, "3: Double quotes only");
 
 {
 
-	no SQL::InterpolationBinding;
+	no DBIx::InterpolationBinding;
 
 	ok(array_eq(
 		[ 'SELECT * FROM table WHERE a=1 AND b=hello' ],
-		[ SQL::InterpolationBinding::_create_sql_and_params(
+		[ DBIx::InterpolationBinding::_create_sql_and_params(
 			"SELECT * FROM table WHERE a=$a AND b=$b"
 		) ]
 	), 1, "4: Lexical scope only");

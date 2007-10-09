@@ -4,4 +4,4 @@ MANIFEST
 README
 t/01-overloading.t
 t/02-dbi.t
-lib/SQL/InterpolationBinding.pm
+lib/DBIx/InterpolationBinding.pm
