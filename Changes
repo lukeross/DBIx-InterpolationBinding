@@ -1,7 +1,7 @@
 Revision history for Perl extension DBIx::InterpolationBinding.
 
 0.05  
-        - Fixed documentation error
+	- Fixed documentation error
 
 0.04  Tue Oct 09 2007 23:05:00
 	- Fixed error in test suite
