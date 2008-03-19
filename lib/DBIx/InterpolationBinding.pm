@@ -83,6 +83,7 @@ sub _append_item_to_object {
 	# $new_hash will become the object we return, so the old one
 	# isn't mashed.
 	my $new_hash = { %$self };
+	$new_hash->{bind_params} = [ @{ $self->{bind_params} } ];
 
 	# At this point, the thing that isn't $self is either an object of
 	# this class, or it's a boring string. Also, we either need to append
