@@ -11,7 +11,7 @@ use overload '""'       => \&_convert_object_to_string,
              'fallback' => 1;
 require DBI;
 
-$VERSION = '0.05';
+$VERSION = '1.00';
 
 $DEBUG = 0;
 
@@ -188,7 +188,7 @@ this case, using conventional bind params.
 overloaded
 
 If the string passed in is to be interpolated or concatenated into a
-string in the lexical scope this is fine, but if the string from
+string in the lexical scope this is fine, but if a string from
 outside is a bit of SQL the effects may be curious.
 
 =item Trying to concat (. operator) an overloaded object with a string
